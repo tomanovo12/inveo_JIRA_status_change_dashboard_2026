@@ -7,9 +7,9 @@ Stáhne changelog z JIRA a vygeneruje HTML dashboard.
 import os
 import json
 import base64
-import urllib.request
 import urllib.parse
 from datetime import datetime, timedelta, date
+import requests
 
 # ── Konfigurace ────────────────────────────────────────────────────────────────
 JIRA_BASE  = "https://inveo-cz.atlassian.net"
@@ -25,15 +25,19 @@ DATE_FROM = DATE_TO - timedelta(days=90)
 DATE_FROM_STR = DATE_FROM.isoformat()
 DATE_TO_STR   = DATE_TO.isoformat()
 
-AUTH = base64.b64encode(f"{JIRA_EMAIL}:{JIRA_TOKEN}".encode()).decode()
-HEADERS = {"Authorization": f"Basic {AUTH}", "Accept": "application/json"}
+SESSION = requests.Session()
+SESSION.auth = (JIRA_EMAIL, JIRA_TOKEN)
+SESSION.headers.update({"Accept": "application/json", "Content-Type": "application/json"})
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 def jira_get(path):
     url = f"{JIRA_BASE}{path}"
-    req = urllib.request.Request(url, headers=HEADERS)
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return json.loads(r.read())
+    r = SESSION.get(url, timeout=30)
+    if not r.ok:
+        print(f"  HTTP {r.status_code} na {url}")
+        print(f"  Odpověď: {r.text[:300]}")
+        r.raise_for_status()
+    return r.json()
 
 def fetch_issues_with_status_change():
     """Stáhne issues aktualizované v daném rozsahu (changelog se filtruje dále)."""
