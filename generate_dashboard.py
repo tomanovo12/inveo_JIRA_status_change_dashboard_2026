@@ -39,6 +39,15 @@ def jira_get(path):
         r.raise_for_status()
     return r.json()
 
+def jira_post(path, body):
+    url = f"{JIRA_BASE}{path}"
+    r = SESSION.post(url, json=body, timeout=30)
+    if not r.ok:
+        print(f"  HTTP {r.status_code} na {url}")
+        print(f"  Odpověď: {r.text[:500]}")
+        r.raise_for_status()
+    return r.json()
+
 def fetch_issues_with_status_change():
     """Stáhne issues aktualizované v daném rozsahu (changelog se filtruje dále)."""
     issues = []
@@ -47,14 +56,13 @@ def fetch_issues_with_status_change():
     print(f"Hledám issues aktualizované {DATE_FROM_STR} – {DATE_TO_STR}...")
 
     while True:
-        params = urllib.parse.urlencode({
+        body = {
             "jql": jql,
             "startAt": start,
             "maxResults": 100,
-            "fields": "summary",
-        })
-        path = f"/rest/api/2/search?{params}"
-        data = jira_get(path)
+            "fields": ["summary"],
+        }
+        data = jira_post("/rest/api/3/search/jql", body)
         batch = data.get("issues", [])
         issues.extend(batch)
         total = data.get("total", 0)
@@ -71,7 +79,7 @@ def fetch_changelog(issue_key, summary):
     changes = []
     start = 0
     while True:
-        path = f"/rest/api/2/issue/{issue_key}/changelog?startAt={start}&maxResults=100"
+        path = f"/rest/api/3/issue/{issue_key}/changelog?startAt={start}&maxResults=100"
         data = jira_get(path)
         histories = data.get("values", [])
         for h in histories:
