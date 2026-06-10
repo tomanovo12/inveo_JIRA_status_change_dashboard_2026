@@ -20,7 +20,7 @@ OUTPUT_DIR = os.environ.get("OUTPUT_DIR", "docs")
 
 # Rozsah: posledních 90 dní (vždy relativní k dnešku)
 DATE_TO   = date.today()
-DATE_FROM = DATE_TO - timedelta(days=90)
+DATE_FROM = date(2026, 1, 1)
 
 DATE_FROM_STR = DATE_FROM.isoformat()
 DATE_TO_STR   = DATE_TO.isoformat()
@@ -51,8 +51,8 @@ def jira_post(path, body):
 def fetch_issues_with_status_change():
     """Stáhne issues aktualizované v daném rozsahu (changelog se filtruje dále)."""
     issues = []
-    jql = f'updated >= "{DATE_FROM_STR}" AND updated <= "{DATE_TO_STR}" ORDER BY updated DESC'
-    print(f"Hledám issues aktualizované {DATE_FROM_STR} – {DATE_TO_STR}...")
+    jql = f'updated >= "{_STR}" AND updated <= "{DATE_TO_STR}" ORDER BY updated DESC'
+    print(f"Hledám issues aktualizované {_STR} – {DATE_TO_STR}...")
 
     next_token = None
     while True:
@@ -82,7 +82,7 @@ def fetch_changelog(issue_key, summary):
         histories = data.get("values", [])
         for h in histories:
             h_date = h.get("created", "")[:10]
-            if h_date < DATE_FROM_STR or h_date > DATE_TO_STR:
+            if h_date < _STR or h_date > DATE_TO_STR:
                 continue
             author = h.get("author", {}).get("displayName", "—")
             for item in h.get("items", []):
@@ -130,7 +130,7 @@ PROJECT_PALETTE = [
     "#ffa500","#20b2aa","#cd853f","#708090",
 ]
 
-def build_html(data, date_from, date_to):
+def build_html(data, , date_to):
     projects = sorted(set(d["project"] for d in data))
     proj_colors = {p: PROJECT_PALETTE[i % len(PROJECT_PALETTE)] for i, p in enumerate(projects)}
 
