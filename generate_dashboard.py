@@ -51,8 +51,7 @@ def jira_post(path, body):
 def fetch_issues_with_status_change():
     """Stáhne issues aktualizované v daném rozsahu (changelog se filtruje dále)."""
     issues = []
-    jql = f'updated >= "{_STR}" AND updated <= "{DATE_TO_STR}" ORDER BY updated DESC'
-    print(f"Hledám issues aktualizované {_STR} – {DATE_TO_STR}...")
+jql = f'updated >= "{DATE_FROM_STR}" AND updated <= "{DATE_TO_STR}" ORDER BY updated DESC'    print(f"Hledám issues aktualizované {_STR} – {DATE_TO_STR}...")
 
     next_token = None
     while True:
