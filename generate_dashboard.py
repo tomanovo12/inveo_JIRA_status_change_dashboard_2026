@@ -35,17 +35,25 @@ def jira_get(path):
     with urllib.request.urlopen(req, timeout=30) as r:
         return json.loads(r.read())
 
+def jira_post(path, body):
+    url = f"{JIRA_BASE}{path}"
+    payload = json.dumps(body).encode("utf-8")
+    req = urllib.request.Request(
+        url, data=payload, headers={**HEADERS, "Content-Type": "application/json"}, method="POST"
+    )
+    with urllib.request.urlopen(req, timeout=30) as r:
+        return json.loads(r.read())
+
 def fetch_issues_with_status_change():
     """Stáhne všechny issue keys které měly změnu statusu v rozsahu."""
     issues = []
     start = 0
     jql = f'status changed AFTER "{DATE_FROM_STR}" AND status changed BEFORE "{DATE_TO_STR}" ORDER BY updated DESC'
-    jql_enc = urllib.parse.quote(jql)
     print(f"Hledám issues se změnou statusu {DATE_FROM_STR} – {DATE_TO_STR}...")
 
     while True:
-        path = f"/rest/api/3/search?jql={jql_enc}&startAt={start}&maxResults=100&fields=summary"
-        data = jira_get(path)
+        body = {"jql": jql, "startAt": start, "maxResults": 100, "fields": ["summary"]}
+        data = jira_post("/rest/api/3/search", body)
         batch = data.get("issues", [])
         issues.extend(batch)
         print(f"  Načteno {len(issues)} issues...")
