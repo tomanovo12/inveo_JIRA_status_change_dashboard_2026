@@ -51,25 +51,23 @@ def jira_post(path, body):
 def fetch_issues_with_status_change():
     """Stáhne issues aktualizované v daném rozsahu (changelog se filtruje dále)."""
     issues = []
-    start = 0
     jql = f'updated >= "{DATE_FROM_STR}" AND updated <= "{DATE_TO_STR}" ORDER BY updated DESC'
     print(f"Hledám issues aktualizované {DATE_FROM_STR} – {DATE_TO_STR}...")
 
+    next_token = None
     while True:
-        body = {
-            "jql": jql,
-            "startAt": start,
-            "maxResults": 100,
-            "fields": ["summary"],
-        }
+        body = {"jql": jql, "maxResults": 100, "fields": ["summary"]}
+        if next_token:
+            body["nextPageToken"] = next_token
+
         data = jira_post("/rest/api/3/search/jql", body)
         batch = data.get("issues", [])
         issues.extend(batch)
-        total = data.get("total", 0)
-        print(f"  Načteno {len(issues)} / {total} issues...")
-        if len(issues) >= total or not batch:
+        print(f"  Načteno {len(issues)} issues...")
+
+        next_token = data.get("nextPageToken")
+        if data.get("isLast", True) or not batch or not next_token:
             break
-        start += len(batch)
 
     print(f"Celkem issues ke zpracování: {len(issues)}")
     return issues
