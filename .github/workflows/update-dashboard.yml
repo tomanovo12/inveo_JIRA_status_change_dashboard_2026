@@ -20,6 +20,9 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Instalace závislostí
+        run: pip install requests
+
       - name: Generování dashboardu
         env:
           JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
