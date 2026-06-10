@@ -82,7 +82,7 @@ def fetch_changelog(issue_key, summary):
         histories = data.get("values", [])
         for h in histories:
             h_date = h.get("created", "")[:10]
-            if h_date < _STR or h_date > DATE_TO_STR:
+            if h_date < DATE_FROM_STR or h_date > DATE_TO_STR:
                 continue
             author = h.get("author", {}).get("displayName", "—")
             for item in h.get("items", []):
