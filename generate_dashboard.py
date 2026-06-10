@@ -36,11 +36,11 @@ def jira_get(path):
         return json.loads(r.read())
 
 def fetch_issues_with_status_change():
-    """Stáhne všechny issue keys které měly změnu statusu v rozsahu."""
+    """Stáhne issues aktualizované v daném rozsahu (changelog se filtruje dále)."""
     issues = []
     start = 0
-    jql = f'status changed AFTER "{DATE_FROM_STR}" AND status changed BEFORE "{DATE_TO_STR}" ORDER BY updated DESC'
-    print(f"Hledám issues se změnou statusu {DATE_FROM_STR} – {DATE_TO_STR}...")
+    jql = f'updated >= "{DATE_FROM_STR}" AND updated <= "{DATE_TO_STR}" ORDER BY updated DESC'
+    print(f"Hledám issues aktualizované {DATE_FROM_STR} – {DATE_TO_STR}...")
 
     while True:
         params = urllib.parse.urlencode({
@@ -53,13 +53,13 @@ def fetch_issues_with_status_change():
         data = jira_get(path)
         batch = data.get("issues", [])
         issues.extend(batch)
-        print(f"  Načteno {len(issues)} issues...")
         total = data.get("total", 0)
+        print(f"  Načteno {len(issues)} / {total} issues...")
         if len(issues) >= total or not batch:
             break
         start += len(batch)
 
-    print(f"Celkem issues: {len(issues)}")
+    print(f"Celkem issues ke zpracování: {len(issues)}")
     return issues
 
 def fetch_changelog(issue_key, summary):
