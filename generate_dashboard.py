@@ -130,7 +130,7 @@ PROJECT_PALETTE = [
     "#ffa500","#20b2aa","#cd853f","#708090",
 ]
 
-def build_html(data, , date_to):
+def build_html(data, date_from, date_to):
     projects = sorted(set(d["project"] for d in data))
     proj_colors = {p: PROJECT_PALETTE[i % len(PROJECT_PALETTE)] for i, p in enumerate(projects)}
 
