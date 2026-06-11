@@ -22,7 +22,7 @@ V repozitáři jdi na **Settings → Secrets and variables → Actions → New r
 
 | Name | Value |
 |------|-------|
-| `JIRA_EMAIL` | `tomas.novotny@inveo.cz` |
+| `JIRA_EMAIL` | `email@inveo.cz` |
 | `JIRA_TOKEN` | token z kroku 1 |
 
 ### 3. GitHub Pages
