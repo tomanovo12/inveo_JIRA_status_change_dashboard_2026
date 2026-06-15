@@ -101,34 +101,59 @@ def fetch_changelog(issue_key, summary):
         start += len(histories)
     return changes
 
-def fetch_all_changes(issues):
+def fetch_created_issues():
+    """Stáhne issues vytvořené v daném rozsahu."""
+    issues = []
+    jql = f'created >= "{DATE_FROM_STR}" AND created <= "{DATE_TO_STR}" ORDER BY created DESC'
+    print(f"Hledám nově vytvořené issues {DATE_FROM_STR} – {DATE_TO_STR}...")
+
+    next_token = None
+    while True:
+        body = {"jql": jql, "maxResults": 100, "fields": ["summary", "created", "reporter"]}
+        if next_token:
+            body["nextPageToken"] = next_token
+        data = jira_post("/rest/api/3/search/jql", body)
+        batch = data.get("issues", [])
+        issues.extend(batch)
+        print(f"  Načteno {len(issues)} nových issues...")
+        next_token = data.get("nextPageToken")
+        if data.get("isLast", True) or not batch or not next_token:
+            break
+
+    print(f"Celkem nových issues: {len(issues)}")
+    return issues
+
+def fetch_all_changes(issues, created_issues=None):
     """Projde všechny issues a sbírá status změny včetně vytvoření."""
     all_changes = []
-    total = len(issues)
-    for i, iss in enumerate(issues, 1):
+
+    # Přidej záznamy o vytvoření tasků
+    seen_created = set()
+    for iss in (created_issues or []):
         key     = iss["key"]
         fields  = iss.get("fields", {})
         summary = fields.get("summary", key)
-        project = key.split("-")[0]
-
-        # Vytvoření tasku — syntetický záznam pokud created je v rozsahu
-        created_raw  = fields.get("created", "")
-        created_date = created_raw[:10] if created_raw else ""
-        if created_date and DATE_FROM_STR <= created_date <= DATE_TO_STR:
-            reporter = fields.get("reporter", {})
-            if isinstance(reporter, dict):
-                reporter_name = reporter.get("displayName", "—")
-            else:
-                reporter_name = "—"
+        created_raw = fields.get("created", "")
+        reporter = fields.get("reporter", {})
+        reporter_name = reporter.get("displayName", "—") if isinstance(reporter, dict) else "—"
+        if key not in seen_created:
+            seen_created.add(key)
             all_changes.append({
                 "issueKey":     key,
-                "project":      project,
+                "project":      key.split("-")[0],
                 "issueSummary": summary,
                 "date":         created_raw,
                 "author":       reporter_name,
                 "fromStatus":   "",
                 "toStatus":     "Vytvořen",
             })
+
+    total = len(issues)
+    for i, iss in enumerate(issues, 1):
+        key     = iss["key"]
+        fields  = iss.get("fields", {})
+        summary = fields.get("summary", key)
+        project = key.split("-")[0]
 
         try:
             changes = fetch_changelog(key, summary)
@@ -443,8 +468,9 @@ initFilters();applyFilters();
 if __name__ == "__main__":
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    issues = fetch_issues_with_status_change()
-    data   = fetch_all_changes(issues)
+    issues          = fetch_issues_with_status_change()
+    created_issues  = fetch_created_issues()
+    data            = fetch_all_changes(issues, created_issues)
 
     print(f"\nCelkem status změn: {len(data)}")
     print(f"Unikátních tasků:   {len(set(d['issueKey'] for d in data))}")
