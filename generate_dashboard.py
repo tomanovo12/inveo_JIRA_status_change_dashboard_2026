@@ -56,7 +56,7 @@ def fetch_issues_with_status_change():
 
     next_token = None
     while True:
-        body = {"jql": jql, "maxResults": 100, "fields": ["summary"]}
+        body = {"jql": jql, "maxResults": 100, "fields": ["summary", "created", "reporter"]}
         if next_token:
             body["nextPageToken"] = next_token
 
@@ -102,12 +102,34 @@ def fetch_changelog(issue_key, summary):
     return changes
 
 def fetch_all_changes(issues):
-    """Projde všechny issues a sbírá status změny."""
+    """Projde všechny issues a sbírá status změny včetně vytvoření."""
     all_changes = []
     total = len(issues)
     for i, iss in enumerate(issues, 1):
         key     = iss["key"]
-        summary = iss["fields"].get("summary", key)
+        fields  = iss.get("fields", {})
+        summary = fields.get("summary", key)
+        project = key.split("-")[0]
+
+        # Vytvoření tasku — syntetický záznam pokud created je v rozsahu
+        created_raw  = fields.get("created", "")
+        created_date = created_raw[:10] if created_raw else ""
+        if created_date and DATE_FROM_STR <= created_date <= DATE_TO_STR:
+            reporter = fields.get("reporter", {})
+            if isinstance(reporter, dict):
+                reporter_name = reporter.get("displayName", "—")
+            else:
+                reporter_name = "—"
+            all_changes.append({
+                "issueKey":     key,
+                "project":      project,
+                "issueSummary": summary,
+                "date":         created_raw,
+                "author":       reporter_name,
+                "fromStatus":   "",
+                "toStatus":     "Vytvořen",
+            })
+
         try:
             changes = fetch_changelog(key, summary)
             all_changes.extend(changes)
@@ -213,6 +235,7 @@ def build_html(data, date_from, date_to):
   .badge-testing{{background:#fef3c7;color:#92400e}}
   .badge-rejected{{background:#fee2e2;color:#991b1b}}
   .badge-waiting{{background:#f0fdf4;color:#166534}}
+  .badge-new{{background:#dbeafe;color:#1d4ed8;border:1px solid #93c5fd}}
   .badge-default{{background:#e2e8f0;color:#4a5568}}
   .proj-badge{{display:inline-block;padding:2px 7px;border-radius:4px;font-size:0.7rem;font-weight:700;color:white}}
   .no-data{{text-align:center;padding:40px;color:#a0aec0;font-size:0.9rem}}
@@ -280,7 +303,7 @@ const PAGE_SIZE=100;
 let currentPage=0,filtered=[],timelineChart=null,transitionsChart=null,projectsChart=null,authorsChart=null;
 function projColor(p){{return PROJECT_COLORS[p]||'#718096';}}
 function badgeClass(s){{
-  const m={{'Created':'badge-created','Planned Today':'badge-planned','Started':'badge-started','In Review':'badge-inreview','Accepted':'badge-accepted','Canceled':'badge-canceled','Cancelled':'badge-canceled','Done':'badge-done','In Progress':'badge-inprogress','To Do':'badge-todo','Delivered':'badge-delivered','Needs testing':'badge-needstesting','Awaiting deployment':'badge-awaitingdep','Testing':'badge-testing','Rejected':'badge-rejected','Waiting':'badge-waiting','Backlog':'badge-todo','Ready to Start':'badge-todo','Selected for Development':'badge-todo','Staging Test':'badge-testing','Dev Test':'badge-testing','Icebox':'badge-todo','Billed':'badge-accepted','Offer':'badge-planned','Order':'badge-started'}};
+  const m={{'Created':'badge-created','Planned Today':'badge-planned','Started':'badge-started','In Review':'badge-inreview','Accepted':'badge-accepted','Canceled':'badge-canceled','Cancelled':'badge-canceled','Done':'badge-done','In Progress':'badge-inprogress','To Do':'badge-todo','Delivered':'badge-delivered','Needs testing':'badge-needstesting','Awaiting deployment':'badge-awaitingdep','Testing':'badge-testing','Rejected':'badge-rejected','Waiting':'badge-waiting','Backlog':'badge-todo','Ready to Start':'badge-todo','Selected for Development':'badge-todo','Staging Test':'badge-testing','Dev Test':'badge-testing','Icebox':'badge-todo','Billed':'badge-accepted','Offer':'badge-planned','Order':'badge-started','Vytvořen':'badge-new'}};
   return m[s]||'badge-default';
 }}
 function badge(s){{return `<span class="badge ${{badgeClass(s)}}">${{s}}</span>`;}}
@@ -400,7 +423,7 @@ function renderTable(){{
   tbody.innerHTML=page.map(d=>{{
     const dt=new Date(d.date);
     const ds=`${{dt.getDate()}}.${{dt.getMonth()+1}}.${{dt.getFullYear()}} ${{String(dt.getHours()).padStart(2,'0')}}:${{String(dt.getMinutes()).padStart(2,'0')}}`;
-    return `<tr><td><span class="proj-badge" style="background:${{projColor(d.project)}}">${{d.project}}</span></td><td><a class="key-link" href="https://inveo-cz.atlassian.net/browse/${{d.issueKey}}" target="_blank">${{d.issueKey}}</a></td><td class="summary-cell" title="${{d.issueSummary.replace(/"/g,'&quot;')}}">${{d.issueSummary}}</td><td class="date-cell">${{ds}}</td><td class="author-cell">${{d.author}}</td><td>${{badge(d.fromStatus)}} <span class="arrow">→</span> ${{badge(d.toStatus)}}</td></tr>`;
+    return `<tr><td><span class="proj-badge" style="background:${{projColor(d.project)}}">${{d.project}}</span></td><td><a class="key-link" href="https://inveo-cz.atlassian.net/browse/${{d.issueKey}}" target="_blank">${{d.issueKey}}</a></td><td class="summary-cell" title="${{d.issueSummary.replace(/"/g,'&quot;')}}">${{d.issueSummary}}</td><td class="date-cell">${{ds}}</td><td class="author-cell">${{d.author}}</td><td>${{d.fromStatus?badge(d.fromStatus):'<span style="color:#a0aec0">—</span>'}} <span class="arrow">→</span> ${{badge(d.toStatus)}}</td></tr>`;
   }}).join('');
 }}
 function renderAll(){{renderKPIs();renderTimeline();renderTransitions();renderProjects();renderAuthors();renderTable();}}
