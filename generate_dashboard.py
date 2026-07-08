@@ -11,16 +11,24 @@ import urllib.parse
 from datetime import datetime, timedelta, date
 import requests
 
-# ── Konfigurace ────────────────────────────────────────────────────────────────
-JIRA_BASE  = "https://inveo-cz.atlassian.net"
+# ══════════════════════════════════════════════════════════════════════════════
+# ── KONFIGURACE — uprav pro každý nový projekt ────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+
+JIRA_BASE       = "https://inveo-cz.atlassian.net"   # URL JIRA instance
+PROJECT_KEYS    = []           # Filtr projektů, např. ["SPMMAN", "BIL"] nebo [] = všechny
+DASHBOARD_TITLE = "Inveo JIRA – Status změny · Všechny projekty"  # Název v hlavičce
+
+# Rozsah dat — vyber jednu variantu:
+DATE_TO   = date.today()
+DATE_FROM = date(2026, 1, 1)   # Pevné datum od
+# DATE_FROM = DATE_TO - timedelta(days=90)  # Alternativa: posledních N dní
+
+# ══════════════════════════════════════════════════════════════════════════════
 CLOUD_ID   = "a1c9c25d-c293-4138-96f4-23214a115b30"
 JIRA_EMAIL = os.environ["JIRA_EMAIL"]
 JIRA_TOKEN = os.environ["JIRA_TOKEN"]
 OUTPUT_DIR = os.environ.get("OUTPUT_DIR", "docs")
-
-# Rozsah: posledních 90 dní (vždy relativní k dnešku)
-DATE_TO   = date.today()
-DATE_FROM = date(2026, 1, 1)
 
 DATE_FROM_STR = DATE_FROM.isoformat()
 DATE_TO_STR   = DATE_TO.isoformat()
@@ -51,7 +59,8 @@ def jira_post(path, body):
 def fetch_issues_with_status_change():
     """Stáhne issues aktualizované v daném rozsahu (changelog se filtruje dále)."""
     issues = []
-    jql = f'updated >= "{DATE_FROM_STR}" AND updated <= "{DATE_TO_STR}" ORDER BY updated DESC'
+    proj_filter = f" AND project in ({','.join(PROJECT_KEYS)})" if PROJECT_KEYS else ""
+    jql = f'updated >= "{DATE_FROM_STR}" AND updated <= "{DATE_TO_STR}"{proj_filter} ORDER BY updated DESC'
     print(f"Hledám issues aktualizované {DATE_FROM_STR} – {DATE_TO_STR}...")
 
     next_token = None
@@ -104,7 +113,8 @@ def fetch_changelog(issue_key, summary):
 def fetch_created_issues():
     """Stáhne issues vytvořené v daném rozsahu."""
     issues = []
-    jql = f'created >= "{DATE_FROM_STR}" AND created <= "{DATE_TO_STR}" ORDER BY created DESC'
+    proj_filter = f" AND project in ({','.join(PROJECT_KEYS)})" if PROJECT_KEYS else ""
+    jql = f'created >= "{DATE_FROM_STR}" AND created <= "{DATE_TO_STR}"{proj_filter} ORDER BY created DESC'
     print(f"Hledám nově vytvořené issues {DATE_FROM_STR} – {DATE_TO_STR}...")
 
     next_token = None
@@ -197,7 +207,7 @@ def build_html(data, date_from, date_to):
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Inveo JIRA – Status změny</title>
+<title>{DASHBOARD_TITLE}</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   *{{box-sizing:border-box;margin:0;padding:0}}
@@ -269,7 +279,7 @@ def build_html(data, date_from, date_to):
 <body>
 <header>
   <div>
-    <h1>Inveo JIRA – Status změny · Všechny projekty</h1>
+    <h1>{DASHBOARD_TITLE}</h1>
     <span style="font-size:0.82rem;opacity:.75;">{date_from} – {date_to} · {len(projects)} projektů</span>
   </div>
   <div class="header-meta" id="header-meta">Načítám…</div>
@@ -448,7 +458,7 @@ function renderTable(){{
   tbody.innerHTML=page.map(d=>{{
     const dt=new Date(d.date);
     const ds=`${{dt.getDate()}}.${{dt.getMonth()+1}}.${{dt.getFullYear()}} ${{String(dt.getHours()).padStart(2,'0')}}:${{String(dt.getMinutes()).padStart(2,'0')}}`;
-    return `<tr><td><span class="proj-badge" style="background:${{projColor(d.project)}}">${{d.project}}</span></td><td><a class="key-link" href="https://inveo-cz.atlassian.net/browse/${{d.issueKey}}" target="_blank">${{d.issueKey}}</a></td><td class="summary-cell" title="${{d.issueSummary.replace(/"/g,'&quot;')}}">${{d.issueSummary}}</td><td class="date-cell">${{ds}}</td><td class="author-cell">${{d.author}}</td><td>${{d.fromStatus?badge(d.fromStatus):'<span style="color:#a0aec0">—</span>'}} <span class="arrow">→</span> ${{badge(d.toStatus)}}</td></tr>`;
+    return `<tr><td><span class="proj-badge" style="background:${{projColor(d.project)}}">${{d.project}}</span></td><td><a class="key-link" href="{JIRA_BASE}/browse/${{d.issueKey}}" target="_blank">${{d.issueKey}}</a></td><td class="summary-cell" title="${{d.issueSummary.replace(/"/g,'&quot;')}}">${{d.issueSummary}}</td><td class="date-cell">${{ds}}</td><td class="author-cell">${{d.author}}</td><td>${{d.fromStatus?badge(d.fromStatus):'<span style="color:#a0aec0">—</span>'}} <span class="arrow">→</span> ${{badge(d.toStatus)}}</td></tr>`;
   }}).join('');
 }}
 function renderAll(){{renderKPIs();renderTimeline();renderTransitions();renderProjects();renderAuthors();renderTable();}}
